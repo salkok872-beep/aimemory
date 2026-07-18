@@ -1,10 +1,4 @@
 import os
-
-# Sunucu başlamadan bu klasörleri otomatik oluşturur
-os.makedirs("data", exist_ok=True)
-os.makedirs("dokumanlar", exist_ok=True)
-
-import os
 import json
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 
@@ -24,6 +18,12 @@ def load_users():
 def save_users(users):
     with open(USER_FILE, "w", encoding="utf-8") as f:
         json.dump(users, f, indent=4)
+
+# Admin hesap oluşturma
+if "admin" not in load_users():
+    u = load_users()
+    u["admin"] = {"p": "nimda", "role": "admin", "authorized": True}
+    save_users(u)
 
 def append_line(file_path, data):
     with open(file_path, "a", encoding="utf-8") as f:
@@ -46,7 +46,7 @@ class CustomHandler(SimpleHTTPRequestHandler):
     def do_POST(self):
         content_length = int(self.headers.get('Content-Length', 0))
         body = self.rfile.read(content_length).decode('utf-8')
-        data = json.loads(body)
+        data = json.loads(body) if body else {}
         self.send_response(200)
         self.send_header('Content-Type', 'application/json')
         self.end_headers()
@@ -69,11 +69,18 @@ class CustomHandler(SimpleHTTPRequestHandler):
             else:
                 self.wfile.write(json.dumps({"success": False}).encode())
 
+        elif self.path == "/api/admin/authorize":
+            users = load_users()
+            target = data.get("user")
+            if target in users:
+                users[target]["authorized"] = data.get("status", False)
+                save_users(users)
+            self.wfile.write(json.dumps({"success": True}).encode())
+
         elif self.path == "/api/chat":
             room = data.get('room', 'genel')
-            entry = {"user": data.get('user'), "msg": data.get('msg')}
             path = "data/genel_sohbet.txt" if room == "genel" else ("dokumanlar/egitim.txt" if room == "egitim" else f"data/{room}.txt")
-            append_line(path, entry)
+            append_line(path, {"user": data.get('user'), "msg": data.get('msg')})
             self.wfile.write(json.dumps({"success": True}).encode())
 
         elif self.path == "/api/get_data":
