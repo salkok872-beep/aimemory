@@ -78,3 +78,53 @@
     </script>
 </body>
             </html>
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <title>AI Yönetim Paneli</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-900 text-white">
+    <div id="app" class="container mx-auto p-4">
+        <!-- Giriş Ekranı -->
+        <div id="login-screen" class="max-w-md mx-auto mt-20 bg-gray-800 p-8 rounded-lg shadow-xl">
+            <h2 class="text-2xl mb-4 font-bold text-center">Giriş Yap / Kayıt Ol</h2>
+            <input id="username" type="text" placeholder="Kullanıcı Adı" class="w-full p-2 mb-4 bg-gray-700 border border-gray-600 rounded">
+            <input id="password" type="password" placeholder="Şifre" class="w-full p-2 mb-4 bg-gray-700 border border-gray-600 rounded">
+            <label class="flex items-center mb-4">
+                <input type="checkbox" id="remember" class="mr-2"> Beni Hatırla
+            </label>
+            <div class="flex gap-2">
+                <button onclick="auth('login')" class="flex-1 bg-blue-600 p-2 rounded">Giriş Yap</button>
+                <button onclick="auth('register')" class="flex-1 bg-green-600 p-2 rounded">Kayıt Ol</button>
+            </div>
+        </div>
+
+        <!-- Sohbet Ekranı (Başlangıçta gizli) -->
+        <div id="chat-screen" class="hidden">
+            <nav class="flex gap-4 mb-4 p-2 bg-gray-800 rounded">
+                <button onclick="switchRoom('genel')" class="p-2 hover:bg-gray-700">Genel</button>
+                <button onclick="switchRoom('ozel')" class="p-2 hover:bg-gray-700">Özel</button>
+                <button id="admin-tab" onclick="switchRoom('egitim')" class="hidden p-2 text-red-400">Eğitim</button>
+            </nav>
+            <div id="chat-box" class="h-96 overflow-y-auto bg-gray-800 p-4 rounded mb-4"></div>
+            <input id="msg-input" type="text" class="w-full p-2 bg-gray-700 rounded" placeholder="Mesajını yaz...">
+            <button onclick="sendMessage()" class="mt-2 w-full bg-blue-600 p-2 rounded">Gönder</button>
+        </div>
+    </div>
+
+    <script>
+        function auth(type) {
+            // Basit geçiş mantığı
+            document.getElementById('login-screen').classList.add('hidden');
+            document.getElementById('chat-screen').classList.remove('hidden');
+            if(document.getElementById('username').value.toLowerCase() === 'admin') {
+                document.getElementById('admin-tab').classList.remove('hidden');
+            }
+        }
+        function switchRoom(room) { alert(room + " odasına geçildi."); }
+        function sendMessage() { alert("Mesaj gönderildi."); }
+    </script>
+</body>
+    </html>
