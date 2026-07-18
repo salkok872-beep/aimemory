@@ -1,6 +1,9 @@
-import os, json, http.server, socketserver
+import os
+import json
+import http.server
+from http.server import HTTPServer
 
-# Dizinleri hazırl
+# Dizinleri hazırla
 os.makedirs("data", exist_ok=True)
 os.makedirs("dokumanlar", exist_ok=True)
 
@@ -28,8 +31,11 @@ class CustomHandler(http.server.SimpleHTTPRequestHandler):
     def do_POST(self):
         content_length = int(self.headers.get('Content-Length', 0))
         body = self.rfile.read(content_length).decode('utf-8')
-        data = json.loads(body)
-        
+        try:
+            data = json.loads(body)
+        except:
+            data = {}
+
         self.send_response(200)
         self.send_header('Content-Type', 'application/json')
         self.end_headers()
@@ -37,12 +43,12 @@ class CustomHandler(http.server.SimpleHTTPRequestHandler):
         if self.path == "/api/register":
             users = get_data(USER_FILE, {})
             u = data.get("u")
-            if u not in users:
+            if u and u not in users:
                 users[u] = {"p": data.get("p"), "role": "user", "authorized": False}
-                with open(USER_FILE, "w") as f: json.dump(users, f)
+                with open(USER_FILE, "w", encoding="utf-8") as f: json.dump(users, f)
                 self.wfile.write(json.dumps({"success": True}).encode())
             else:
-                self.wfile.write(json.dumps({"success": False, "msg": "Kullanıcı mevcut"}).encode())
+                self.wfile.write(json.dumps({"success": False, "msg": "Kullanıcı mevcut veya geçersiz"}).encode())
 
         elif self.path == "/api/login":
             users = get_data(USER_FILE, {})
@@ -54,66 +60,45 @@ class CustomHandler(http.server.SimpleHTTPRequestHandler):
 
         elif self.path == "/api/admin/authorize":
             users = get_data(USER_FILE, {})
-            users[data["user"]]["authorized"] = True
-            with open(USER_FILE, "w") as f: json.dump(users, f)
+            target_user = data.get("user")
+            status = data.get("status", False)
+            if target_user in users:
+                users[target_user]["authorized"] = status
+                with open(USER_FILE, "w", encoding="utf-8") as f: json.dump(users, f)
             self.wfile.write(json.dumps({"success": True}).encode())
 
         elif self.path == "/api/chat":
             chats = get_data(CHAT_FILE, {"genel": [], "ozel": [], "egitim": []})
             reply = None
-            if "hey ai" in data['msg'].lower():
-                reply = "AI: Veritabanımda bilgim yok."
-                for f in os.listdir("dokumanlar"):
-                    with open(f"dokumanlar/{f}", "r", encoding="utf-8") as doc:
-                        if data['msg'].lower() in doc.read().lower(): reply = "AI: Belgeye göre yanıtlandı."
+            msg = data.get('msg', '')
             
-            chats[data['room']].append({"user": data['user'], "msg": data['msg'], "reply": reply})
-            with open(CHAT_FILE, "w") as f: json.dump(chats, f)
+            if "hey ai" in msg.lower():
+                reply = "AI: Veritabanımda bilgim yok."
+                for f_name in os.listdir("dokumanlar"):
+                    file_path = os.path.join("dokumanlar", f_name)
+                    with open(file_path, "r", encoding="utf-8") as doc:
+                        if msg.lower() in doc.read().lower(): 
+                            reply = "AI: Belgeye göre yanıtlandı."
+                            break
+            
+            room = data.get('room', 'genel')
+            chats.setdefault(room, []).append({
+                "user": data.get('user', 'Anonim'), 
+                "msg": msg, 
+                "reply": reply
+            })
+            with open(CHAT_FILE, "w", encoding="utf-8") as f: json.dump(chats, f)
             self.wfile.write(json.dumps({"success": True}).encode())
 
         elif self.path == "/api/get_data":
-            self.wfile.write(json.dumps({"chats": get_data(CHAT_FILE, {}), "users": get_data(USER_FILE, {})}).encode())
+            self.wfile.write(json.dumps({
+                "chats": get_data(CHAT_FILE, {}), 
+                "users": get_data(USER_FILE, {})
+            }).encode())
 
 if __name__ == "__main__":
-    print("Sunucu 8000 portunda çalışıyor...")
-    with socketserver.TCPServer(("", 8000), CustomHandler) as httpd:
-        httpd.serve_forever()
-
-import os
-
-# Render'ın verdiği portu yakala
-port = int(os.environ.get("PORT", 8000))
-
-if __name__ == "__main__":
-    # Sunucuyu başlat
+    port = int(os.environ.get("PORT", 8000))
     server_address = ('0.0.0.0', port)
-    httpd = HTTPServer(server_address, MyHandler)
     print(f"Sunucu {port} portunda çalışıyor...")
-    httpd.serve_forever()
-
-from http.server import HTTPServer, SimpleHTTPRequestHandler
-import json
-import os
-
-PORT = int(os.environ.get("PORT", 8000))
-
-class MyHandler(SimpleHTTPRequestHandler):
-    def do_POST(self):
-        content_length = int(self.headers['Content-Length'])
-        post_data = self.rfile.read(content_length)
-        data = json.loads(post_data.decode('utf-8'))
-        
-        # Basit Kayıt/Giriş Mantığı
-        if self.path == '/api/auth':
-            # Buraya kayıt/giriş logic'i gelecek
-            self.send_response(200)
-            self.send_header('Content-type', 'application/json')
-            self.end_headers()
-            self.wfile.write(json.dumps({"status": "success"}).encode())
-        else:
-            super().do_POST()
-
-if __name__ == "__main__":
-    httpd = HTTPServer(('0.0.0.0', PORT), MyHandler)
-    print(f"Sunucu {PORT} portunda baslatildi.")
+    httpd = HTTPServer(server_address, CustomHandler)
     httpd.serve_forever()
