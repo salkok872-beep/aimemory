@@ -1,58 +1,85 @@
 <!DOCTYPE html>
-<html>
-<head><meta charset="utf-8"><title>AI Yönetim Paneli</title></head>
-<body>
-    <div id="loginArea">
-        <input id="u" placeholder="Kullanıcı"> <input id="p" type="password" placeholder="Şifre">
-        <input type="checkbox" id="rem"> Beni Hatırla
-        <button onclick="login()">Giriş Yap</button>
-    </div>
-
-    <div id="mainArea" style="display:none;">
-        <select id="rooms" onchange="load()">
-            <option value="genel">Genel Oda</option>
-        </select>
-        <div id="chatBox" style="height:300px; border:1px solid #ccc; overflow:auto;"></div>
-        <input id="msg"> <button onclick="send()">Gönder</button>
-        <div id="adminPanel" style="display:none; border:2px solid red; padding:10px;">
-            <h3>Admin & Eğitim Paneli</h3>
-            <input id="target" placeholder="Yetkilendirilecek Kullanıcı"> <button onclick="setRole()">Yetki Ver</button>
-            <textarea id="edu" placeholder="AI İçin Veri Girin..."></textarea> <button onclick="upload()">AI'yı Eğit</button>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <title>AI Yönetim Paneli</title>
+</head>
+<body class="bg-slate-950 text-white font-sans min-h-screen">
+    <div id="auth" class="flex items-center justify-center h-screen">
+        <div class="bg-slate-900 p-8 rounded-2xl w-96 border border-slate-700">
+            <h2 class="text-2xl font-bold mb-6 text-indigo-400">Giriş Yap / Kayıt Ol</h2>
+            <input id="u" class="w-full bg-slate-800 p-3 rounded mb-3" placeholder="Kullanıcı Adı">
+            <input id="p" type="password" class="w-full bg-slate-800 p-3 rounded mb-3" placeholder="Şifre">
+            <label class="block mb-4"><input type="checkbox" id="rem"> Beni Hatırla</label>
+            <button onclick="login()" class="w-full bg-indigo-600 p-3 rounded font-bold">Devam Et</button>
         </div>
     </div>
 
+    <div id="main" class="hidden p-8 grid grid-cols-4 gap-6">
+        <aside class="col-span-1 bg-slate-900 p-4 rounded-xl">
+            <h3 class="text-xs text-slate-500 font-bold uppercase mb-4">Odalar</h3>
+            <select id="rooms" onchange="loadChat()" class="w-full bg-slate-800 p-2 rounded mb-6"></select>
+            <div id="admin-panel" class="hidden border-t border-slate-700 pt-4">
+                <h3 class="text-sm font-bold mb-2">Yetkilendirme</h3>
+                <div id="userList" class="space-y-2"></div>
+            </div>
+        </aside>
+        <main class="col-span-3 bg-slate-900 p-6 rounded-xl h-[80vh] flex flex-col">
+            <div id="chatBox" class="flex-1 overflow-y-auto mb-4 space-y-3"></div>
+            <div class="flex gap-2">
+                <input id="msg" class="flex-1 bg-slate-800 p-3 rounded" placeholder="Mesaj yaz...">
+                <button onclick="send()" class="bg-indigo-600 px-6 rounded">Gönder</button>
+            </div>
+        </main>
+    </div>
+
     <script>
-        let user, role;
+        let user, role, authStatus;
         async function login() {
             const u = document.getElementById('u').value, p = document.getElementById('p').value;
             const res = await fetch('/api/login', {method:'POST', body:JSON.stringify({u, p})});
             const d = await res.json();
             if(d.success) {
-                user = u; role = d.role;
-                document.getElementById('loginArea').style.display = "none";
-                document.getElementById('mainArea').style.display = "block";
-                if(document.getElementById('rem').checked) localStorage.setItem('user', u);
-                
-                const s = document.getElementById('rooms');
-                if(role == "yetkili" || role == "admin") s.innerHTML += '<option value="ozel">Özel Oda</option>';
-                if(role == "admin") { s.innerHTML += '<option value="egitim">Eğitim Odası</option>'; document.getElementById('adminPanel').style.display = "block"; }
+                user = u; role = d.role; authStatus = d.authorized;
+                document.getElementById('auth').classList.add('hidden');
+                document.getElementById('main').classList.remove('hidden');
+                renderRooms();
+            }
+        }
+        function renderRooms() {
+            const s = document.getElementById('rooms');
+            s.innerHTML = '<option value="genel">Genel</option>';
+            if(authStatus || role === 'admin') s.innerHTML += '<option value="ozel">Özel</option>';
+            if(role === 'admin') {
+                s.innerHTML += '<option value="egitim">Eğitim</option>';
+                document.getElementById('admin-panel').classList.remove('hidden');
             }
         }
         async function send() {
-            await fetch('/api/chat', {method:'POST', body:JSON.stringify({user, room:document.getElementById('rooms').value, msg:document.getElementById('msg').value})});
-        }
-        async function upload() {
-            await fetch('/api/upload', {method:'POST', body:JSON.stringify({role, name:Date.now(), content:document.getElementById('edu').value})});
-        }
-        async function setRole() {
-            await fetch('/api/set_role', {method:'POST', body:JSON.stringify({admin_p:'nimda', target:document.getElementById('target').value})});
+            const room = document.getElementById('rooms').value;
+            const msg = document.getElementById('msg').value;
+            await fetch('/api/chat', {method:'POST', body:JSON.stringify({user, room, msg})});
+            document.getElementById('msg').value = '';
         }
         setInterval(async () => {
             if(!user) return;
-            const res = await fetch('/api/get', {method:'POST'});
+            const res = await fetch('/api/get_data', {method:'POST'});
             const d = await res.json();
-            document.getElementById('chatBox').innerHTML = d[document.getElementById('rooms').value].map(m => `<div><b>${m.user}:</b> ${m.msg} <i>${m.reply||''}</i></div>`).join("");
+            const room = document.getElementById('rooms').value;
+            document.getElementById('chatBox').innerHTML = d.chats[room].map(m => 
+                `<div class="p-2 bg-slate-800 rounded"><b>${m.user}:</b> ${m.msg} ${m.reply ? '<br><span class="text-indigo-400">'+m.reply+'</span>' : ''}</div>`
+            ).join('');
+            
+            if(role === 'admin') {
+                document.getElementById('userList').innerHTML = Object.keys(d.users).map(u => 
+                    `<div><input type="checkbox" ${d.users[u].authorized ? 'checked' : ''} onchange="toggle('${u}', this.checked)"> ${u}</div>`
+                ).join('');
+            }
         }, 3000);
+        async function toggle(target, status) {
+            await fetch('/api/admin/set_role', {method:'POST', body:JSON.stringify({admin_u: 'admin', target, status})});
+        }
     </script>
 </body>
-    </html>
+</html>
