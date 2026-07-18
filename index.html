@@ -1,28 +1,44 @@
-<select id="roomSelect" onchange="changeRoom()">
-    <option value="genel">Genel Oda</option>
-    <!-- JS ile role göre diğerleri eklenecek -->
-</select>
+<div id="loginArea">
+    <input id="u" placeholder="Kullanıcı"><input id="p" type="password" placeholder="Şifre">
+    <button onclick="login()">Giriş Yap</button>
+</div>
+
+<div id="mainArea" style="display:none;">
+    <select id="rooms" onchange="changeRoom()"></select>
+    <div id="chatBox" style="height:300px; border:1px solid #ccc; overflow:auto;"></div>
+    <input id="msg"><button onclick="send()">Gönder</button>
+    <div id="adminPanel" style="display:none;">
+        <input id="fname"><textarea id="fcontent"></textarea><button onclick="upload()">Dosya Yükle</button>
+    </div>
+</div>
 
 <script>
-    let role = "user"; // Login sonrası sunucudan gelecek
-
-    function initRoles(userRole) {
-        role = userRole;
-        const select = document.getElementById('roomSelect');
-        if (role === "yetkili" || role === "admin") {
-            select.innerHTML += '<option value="ozel">Özel Oda</option>';
-        }
-        if (role === "admin") {
-            select.innerHTML += '<option value="egitim">Eğitim Odası</option>';
+    let user = "", role = "";
+    async function login() {
+        const res = await fetch('/api/login', {method:'POST', body:JSON.stringify({u:document.getElementById('u').value, p:document.getElementById('p').value})});
+        const d = await res.json();
+        if(d.success) {
+            user = document.getElementById('u').value; role = d.role;
+            document.getElementById('loginArea').style.display = "none";
+            document.getElementById('mainArea').style.display = "block";
+            updateRooms();
         }
     }
-
+    function updateRooms() {
+        const s = document.getElementById('rooms');
+        s.innerHTML = '<option value="genel">Genel</option>';
+        if(role == "yetkili" || role == "admin") s.innerHTML += '<option value="ozel">Özel</option>';
+        if(role == "admin") { s.innerHTML += '<option value="egitim">Eğitim</option>'; document.getElementById('adminPanel').style.display = "block"; }
+    }
+    setInterval(async () => {
+        const res = await fetch('/api/get_data', {method:'POST', body:JSON.stringify({role:role})});
+        const d = await res.json();
+        document.getElementById('chatBox').innerHTML = d[document.getElementById('rooms').value].map(m => `<div><b>${m.user}:</b> ${m.msg}</div>`).join("");
+    }, 3000);
     async function send() {
-        const msg = document.getElementById('msg').value;
-        const res = await fetch('/api/chat', {
-            method: 'POST',
-            body: JSON.stringify({username: currentUser, message: msg, room: currentRoom, role: role})
-        });
-        if(res.status === 403) alert("Buraya erişim yetkiniz yok!");
+        await fetch('/api/chat', {method:'POST', body:JSON.stringify({user, role, room:document.getElementById('rooms').value, msg:document.getElementById('msg').value})});
     }
-</script>
+    async function upload() {
+        await fetch('/api/admin/upload', {method:'POST', body:JSON.stringify({role, name:document.getElementById('fname').value, content:document.getElementById('fcontent').value})});
+    }
+    </script>
