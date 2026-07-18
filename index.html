@@ -5,26 +5,29 @@
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-gray-900 text-white p-5">
-    <div id="login" class="max-w-sm mx-auto bg-gray-800 p-6 rounded-lg">
-        <input id="u" class="w-full bg-gray-700 p-2 mb-2 rounded" placeholder="Kullanıcı">
-        <input id="p" type="password" class="w-full bg-gray-700 p-2 mb-2 rounded" placeholder="Şifre">
+    <div id="login" class="max-w-md mx-auto bg-gray-800 p-8 rounded-xl shadow-lg">
+        <input id="u" class="w-full bg-gray-700 p-2 mb-3 rounded" placeholder="Kullanıcı Adı">
+        <input id="p" type="password" class="w-full bg-gray-700 p-2 mb-3 rounded" placeholder="Şifre">
         <label><input type="checkbox" id="rem"> Beni Hatırla</label>
-        <button onclick="login()" class="w-full bg-blue-600 mt-4 p-2 rounded">Giriş Yap</button>
+        <div class="flex gap-2 mt-4">
+            <button onclick="auth('login')" class="flex-1 bg-blue-600 p-2 rounded">Giriş Yap</button>
+            <button onclick="auth('register')" class="flex-1 bg-gray-600 p-2 rounded">Kayıt Ol</button>
+        </div>
     </div>
 
-    <div id="main" class="hidden grid grid-cols-4 gap-4">
-        <div class="col-span-1 bg-gray-800 p-4 rounded">
-            <select id="rooms" onchange="render()" class="w-full bg-gray-700 p-2 rounded"></select>
-            <div id="adminPanel" class="mt-6 border-t pt-4 hidden">
-                <input id="target" placeholder="Kullanıcı Adı" class="w-full p-1 text-black">
-                <button onclick="setRole()" class="w-full bg-red-600 mt-2 p-1 rounded">Yetki Ver</button>
+    <div id="main" class="hidden grid grid-cols-4 gap-6">
+        <div class="col-span-1 bg-gray-800 p-4 rounded-xl">
+            <select id="rooms" onchange="render()" class="w-full bg-gray-700 p-2 mb-4 rounded"></select>
+            <div id="adminPanel" class="hidden border-t border-gray-600 pt-4">
+                <h3 class="font-bold mb-2">Yetkilendirme</h3>
+                <div id="userList" class="space-y-2"></div>
             </div>
         </div>
-        <div class="col-span-3 bg-gray-800 p-4 rounded">
-            <div id="chatBox" class="h-64 overflow-y-auto mb-4 border border-gray-600 p-2"></div>
+        <div class="col-span-3 bg-gray-800 p-4 rounded-xl">
+            <div id="chatBox" class="h-64 overflow-y-auto mb-4 bg-gray-900 p-3 rounded"></div>
             <div class="flex gap-2">
                 <input id="msg" class="flex-1 bg-gray-700 p-2 rounded">
-                <button onclick="send()" class="bg-green-600 px-4 rounded">Gönder</button>
+                <button onclick="send()" class="bg-green-600 px-6 rounded">Gönder</button>
             </div>
         </div>
     </div>
@@ -33,23 +36,14 @@
         let user, role;
         window.onload = () => { if(localStorage.getItem('u')) document.getElementById('u').value = localStorage.getItem('u'); }
 
-        async function login() {
+        async function auth(type) {
             user = document.getElementById('u').value;
             const p = document.getElementById('p').value;
             if(document.getElementById('rem').checked) localStorage.setItem('u', user);
-            const res = await fetch('/api/login', {method:'POST', body:JSON.stringify({u:user, p})});
-            if(res.ok) {
-                const d = await res.json(); role = d.role;
-                document.getElementById('login').classList.add('hidden');
-                document.getElementById('main').classList.remove('hidden');
-                const s = document.getElementById('rooms');
-                s.innerHTML = '<option value="genel">Genel</option><option value="ozel">Özel</option>';
-                if(role == 'admin') { 
-                    s.innerHTML += '<option value="egitim">Eğitim</option>'; 
-                    document.getElementById('adminPanel').classList.remove('hidden');
-                }
-                render();
-            }
+            const res = await fetch('/api/'+type, {method:'POST', body:JSON.stringify({u:user, p})});
+            const d = await res.json();
+            if(d.success) { role = d.role; document.getElementById('login').classList.add('hidden'); document.getElementById('main').classList.remove('hidden'); render(); }
+            else alert('İşlem Başarısız!');
         }
 
         async function send() {
@@ -62,16 +56,20 @@
         async function render() {
             const res = await fetch('/api/get_data', {method:'POST'});
             const d = await res.json();
-            const room = document.getElementById('rooms').value;
-            document.getElementById('chatBox').innerHTML = (d[room]||[]).map(m => `<div><b>${m.user}:</b> ${m.msg} ${m.reply ? '<br><span class="text-blue-400">'+m.reply+'</span>' : ''}</div>`).join('');
+            const s = document.getElementById('rooms');
+            s.innerHTML = '<option value="genel">Genel</option>';
+            if(role == 'yetkili' || role == 'admin') s.innerHTML += '<option value="ozel">Özel</option>';
+            if(role == 'admin') { s.innerHTML += '<option value="egitim">Eğitim</option>'; document.getElementById('adminPanel').classList.remove('hidden'); }
+            
+            document.getElementById('chatBox').innerHTML = (d.chats[s.value]||[]).map(m => `<div><b>${m.user}:</b> ${m.msg} ${m.reply ? '<span class="text-blue-400">('+m.reply+')</span>' : ''}</div>`).join('');
+            
+            if(role == 'admin') {
+                document.getElementById('userList').innerHTML = Object.keys(d.users).map(u => 
+                    `<div class="flex justify-between">${u} <button onclick="setRole('${u}')" class="text-xs bg-red-600 px-1 rounded">Yetki</button></div>`).join('');
+            }
         }
-        
-        async function setRole() {
-            await fetch('/api/admin/set_role', {method:'POST', body:JSON.stringify({target: document.getElementById('target').value})});
-            alert('Yetkilendirildi!');
-        }
-
+        async function setRole(u) { await fetch('/api/admin/auth', {method:'POST', body:JSON.stringify({target:u})}); render(); }
         setInterval(render, 3000);
     </script>
 </body>
-                    </html>
+</html>
