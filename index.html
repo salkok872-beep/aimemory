@@ -1,17 +1,28 @@
+<select id="roomSelect" onchange="changeRoom()">
+    <option value="genel">Genel Oda</option>
+    <!-- JS ile role göre diğerleri eklenecek -->
+</select>
+
 <script>
-    // Kullanıcıları ve Mesajları 3 saniyede bir çek
-    setInterval(async () => {
-        const res = await fetch('/api/get_data'); // Sunucudan hem mesajları hem aktiflik durumunu al
-        const data = await res.json();
-        
-        // Mesaj kutusunu güncelle
-        document.getElementById("chatBox").innerHTML = data.messages.join("<br>");
-        
-        // Aktiflik listesini güncelle
-        const userList = document.getElementById("userList");
-        userList.innerHTML = "";
-        for(let u in data.users) {
-            userList.innerHTML += `<div>${data.users[u].active ? "🟢" : "🔴"} ${u}</div>`;
+    let role = "user"; // Login sonrası sunucudan gelecek
+
+    function initRoles(userRole) {
+        role = userRole;
+        const select = document.getElementById('roomSelect');
+        if (role === "yetkili" || role === "admin") {
+            select.innerHTML += '<option value="ozel">Özel Oda</option>';
         }
-    }, 3000);
+        if (role === "admin") {
+            select.innerHTML += '<option value="egitim">Eğitim Odası</option>';
+        }
+    }
+
+    async function send() {
+        const msg = document.getElementById('msg').value;
+        const res = await fetch('/api/chat', {
+            method: 'POST',
+            body: JSON.stringify({username: currentUser, message: msg, room: currentRoom, role: role})
+        });
+        if(res.status === 403) alert("Buraya erişim yetkiniz yok!");
+    }
 </script>
