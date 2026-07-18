@@ -2,37 +2,39 @@
 <html lang="tr">
 <head>
     <meta charset="UTF-8">
+    <title>AI Sohbet Paneli</title>
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-gray-900 text-white p-5">
-    <!-- Login Area -->
+    <!-- Giriş Bölümü -->
     <div id="loginArea" class="max-w-sm mx-auto bg-gray-800 p-6 rounded shadow">
-        <h2 class="text-xl mb-4 font-bold">Giris / Kayit</h2>
-        <input id="u" class="w-full bg-gray-700 p-2 mb-2 rounded text-white" placeholder="Kullanici Adi">
-        <input id="p" type="password" class="w-full bg-gray-700 p-2 mb-2 rounded text-white" placeholder="Sifre">
-        <label class="flex items-center gap-2 text-sm"><input type="checkbox" id="rem"> Beni Hatirla</label>
-        <div class="flex gap-2 mt-4">
-            <button onclick="login()" class="flex-1 bg-blue-600 p-2 rounded hover:bg-blue-500">Giris</button>
-            <button onclick="register()" class="flex-1 bg-green-600 p-2 rounded hover:bg-green-500">Kayit</button>
+        <h2 class="text-xl mb-4 font-bold">Giriş / Kayıt</h2>
+        <input id="u" class="w-full bg-gray-700 p-2 mb-2 rounded text-white" placeholder="Kullanıcı Adı">
+        <input id="p" type="password" class="w-full bg-gray-700 p-2 mb-2 rounded text-white" placeholder="Şifre">
+        <label class="flex items-center gap-2 text-sm mb-4"><input type="checkbox" id="rem"> Beni Hatırla</label>
+        <div class="flex gap-2">
+            <button onclick="login()" class="flex-1 bg-blue-600 p-2 rounded hover:bg-blue-500">Giriş</button>
+            <button onclick="register()" class="flex-1 bg-green-600 p-2 rounded hover:bg-green-500">Kayıt</button>
         </div>
     </div>
 
-    <!-- Main Area -->
+    <!-- Sohbet Bölümü -->
     <div id="mainArea" class="hidden grid grid-cols-4 gap-4">
-        <div class="col-span-1 bg-gray-800 p-4 rounded">
+        <div class="col-span-1 bg-gray-800 p-4 rounded h-[80vh]">
             <select id="rooms" onchange="render()" class="w-full bg-gray-700 p-2 mb-4 text-white rounded">
-                <option value="genel">Genel</option>
+                <option value="genel">Genel Sohbet</option>
+                <option value="egitim">Eğitim</option>
             </select>
             <div id="adminPanel" class="hidden border-t border-gray-700 pt-4">
                 <h3 class="text-sm font-bold mb-2">Yetkilendirme</h3>
                 <div id="userList" class="text-sm space-y-1"></div>
             </div>
         </div>
-        <div class="col-span-3 bg-gray-800 p-4 rounded">
-            <div id="chatBox" class="h-64 overflow-y-auto mb-4 bg-gray-900 p-2 rounded border border-gray-700"></div>
+        <div class="col-span-3 bg-gray-800 p-4 rounded h-[80vh] flex flex-col">
+            <div id="chatBox" class="flex-1 overflow-y-auto mb-4 bg-gray-900 p-2 rounded border border-gray-700 space-y-2"></div>
             <div class="flex gap-2">
-                <input id="msg" onkeypress="if(event.key==='Enter') send()" class="flex-1 bg-gray-700 p-2 rounded text-white" placeholder="Mesajinizi yazin...">
-                <button onclick="send()" class="bg-blue-600 px-4 rounded hover:bg-blue-500">Gonder</button>
+                <input id="msg" onkeypress="if(event.key==='Enter') send()" class="flex-1 bg-gray-700 p-2 rounded text-white" placeholder="Mesajınızı yazın...">
+                <button onclick="send()" class="bg-blue-600 px-4 rounded hover:bg-blue-500">Gönder</button>
             </div>
         </div>
     </div>
@@ -54,7 +56,7 @@
                     body: JSON.stringify(data)
                 });
                 return await res.json();
-            } catch (e) { return {success: false}; }
+            } catch (e) { console.error("Bağlantı hatası:", e); return {success: false}; }
         }
 
         async function login() {
@@ -68,22 +70,18 @@
                 document.getElementById('loginArea').classList.add('hidden');
                 document.getElementById('mainArea').classList.remove('hidden');
                 initRooms();
-            } else { alert("Giris basarisiz!"); }
+            } else { alert("Giriş başarısız! Bilgileri kontrol edin."); }
         }
 
         async function register() {
             const res = await post("/api/register", {u: document.getElementById('u').value, p: document.getElementById('p').value});
-            alert(res.success ? "Kayit Basarili" : res.msg);
+            alert(res.success ? "Kayıt Başarılı! Şimdi giriş yapabilirsiniz." : res.msg);
         }
 
         function initRooms() {
             const s = document.getElementById('rooms');
-            s.innerHTML = '<option value="genel">Genel</option>';
-            if(role === 'admin' || authorized) s.innerHTML += '<option value="ozel">Ozel</option>';
-            if(role === 'admin') { 
-                s.innerHTML += '<option value="egitim">Egitim</option>'; 
-                document.getElementById('adminPanel').classList.remove('hidden'); 
-            }
+            // Admin panelini göster
+            if(role === 'admin') document.getElementById('adminPanel').classList.remove('hidden');
             render(); 
             setInterval(render, 3000);
         }
@@ -91,19 +89,35 @@
         async function render() {
             const d = await post("/api/get_data", {});
             const chatBox = document.getElementById('chatBox');
-            const currentRoom = document.getElementById('rooms').value;
+            const roomSelect = document.getElementById('rooms');
+            const currentRoom = roomSelect.value;
             
-            if(d.chats) {
-                const newHtml = (d.chats[currentRoom]||[]).map(m => 
-                    `<div class="mb-2 p-1 border-b border-gray-800"><b>${m.user}:</b> ${m.msg} ${m.reply ? `<br><span class="text-blue-400 text-xs">${m.reply}</span>` : ''}</div>`
-                ).join('');
-                
-                if(chatBox.innerHTML !== newHtml) {
-                    chatBox.innerHTML = newHtml;
-                    chatBox.scrollTop = chatBox.scrollHeight; // Otomatik aşağı kaydır
+            // Özel odaları select'e ekle (eğer yoksa)
+            Object.keys(d.ozel).forEach(file => {
+                const roomName = file.replace('.txt', '');
+                if(![...roomSelect.options].find(o => o.value === roomName)) {
+                    let opt = document.createElement('option');
+                    opt.value = roomName; opt.innerHTML = roomName;
+                    roomSelect.appendChild(opt);
                 }
+            });
+
+            // Mesajları yükle
+            let messages = [];
+            if (currentRoom === 'genel') messages = d.genel;
+            else if (currentRoom === 'egitim') messages = d.egitim;
+            else messages = d.ozel[`${currentRoom}.txt`] || [];
+
+            const newHtml = messages.map(m => 
+                `<div class="p-2 bg-gray-700 rounded border-l-4 border-blue-500"><b>${m.user}:</b> ${m.msg}</div>`
+            ).join('');
+            
+            if(chatBox.innerHTML !== newHtml) {
+                chatBox.innerHTML = newHtml;
+                chatBox.scrollTop = chatBox.scrollHeight;
             }
 
+            // Admin yetki listesi
             if(role === 'admin' && d.users) {
                 document.getElementById('userList').innerHTML = Object.keys(d.users).map(u => `
                     <div class="flex items-center gap-2">
@@ -127,4 +141,4 @@
         }
     </script>
 </body>
-                </html>
+        </html>
