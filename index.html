@@ -3,23 +3,25 @@
 <head>
     <meta charset="UTF-8">
     <script src="https://cdn.tailwindcss.com"></script>
-    <title>AI Paneli</title>
 </head>
-<body class="bg-gray-900 text-white p-6">
-    <div id="auth" class="max-w-md mx-auto bg-gray-800 p-6 rounded-lg">
-        <input id="u" class="w-full p-2 bg-gray-700 rounded mb-2" placeholder="Kullanıcı">
-        <input id="p" type="password" class="w-full p-2 bg-gray-700 rounded mb-2" placeholder="Şifre">
+<body class="bg-gray-900 text-white p-5">
+    <div id="login" class="max-w-sm mx-auto bg-gray-800 p-6 rounded-lg">
+        <input id="u" class="w-full bg-gray-700 p-2 mb-2 rounded" placeholder="Kullanıcı">
+        <input id="p" type="password" class="w-full bg-gray-700 p-2 mb-2 rounded" placeholder="Şifre">
         <label><input type="checkbox" id="rem"> Beni Hatırla</label>
-        <button onclick="login()" class="w-full bg-blue-600 p-2 mt-4 rounded">Giriş</button>
+        <button onclick="login()" class="w-full bg-blue-600 mt-4 p-2 rounded">Giriş Yap</button>
     </div>
-    
+
     <div id="main" class="hidden grid grid-cols-4 gap-4">
         <div class="col-span-1 bg-gray-800 p-4 rounded">
             <select id="rooms" onchange="render()" class="w-full bg-gray-700 p-2 rounded"></select>
-            <div id="adminPanel" class="mt-4 border-t pt-2 hidden"></div>
+            <div id="adminPanel" class="mt-6 border-t pt-4 hidden">
+                <input id="target" placeholder="Kullanıcı Adı" class="w-full p-1 text-black">
+                <button onclick="setRole()" class="w-full bg-red-600 mt-2 p-1 rounded">Yetki Ver</button>
+            </div>
         </div>
         <div class="col-span-3 bg-gray-800 p-4 rounded">
-            <div id="chatBox" class="h-64 overflow-y-auto mb-4 border-b"></div>
+            <div id="chatBox" class="h-64 overflow-y-auto mb-4 border border-gray-600 p-2"></div>
             <div class="flex gap-2">
                 <input id="msg" class="flex-1 bg-gray-700 p-2 rounded">
                 <button onclick="send()" class="bg-green-600 px-4 rounded">Gönder</button>
@@ -28,36 +30,48 @@
     </div>
 
     <script>
-        // Beni Hatırla
-        window.onload = () => {
-            const savedU = localStorage.getItem('user');
-            if(savedU) document.getElementById('u').value = savedU;
+        let user, role;
+        window.onload = () => { if(localStorage.getItem('u')) document.getElementById('u').value = localStorage.getItem('u'); }
+
+        async function login() {
+            user = document.getElementById('u').value;
+            const p = document.getElementById('p').value;
+            if(document.getElementById('rem').checked) localStorage.setItem('u', user);
+            const res = await fetch('/api/login', {method:'POST', body:JSON.stringify({u:user, p})});
+            if(res.ok) {
+                const d = await res.json(); role = d.role;
+                document.getElementById('login').classList.add('hidden');
+                document.getElementById('main').classList.remove('hidden');
+                const s = document.getElementById('rooms');
+                s.innerHTML = '<option value="genel">Genel</option><option value="ozel">Özel</option>';
+                if(role == 'admin') { 
+                    s.innerHTML += '<option value="egitim">Eğitim</option>'; 
+                    document.getElementById('adminPanel').classList.remove('hidden');
+                }
+                render();
+            }
         }
 
         async function send() {
             const msg = document.getElementById('msg').value;
-            if(!msg) return;
-            
-            await fetch('/api/chat', {
-                method: 'POST', 
-                body: JSON.stringify({user, room: document.getElementById('rooms').value, msg})
-            });
-            
+            await fetch('/api/chat', {method:'POST', body:JSON.stringify({user, room:document.getElementById('rooms').value, msg})});
             document.getElementById('msg').value = '';
-            render(); // Gönderir göndermez ekranı güncelle
+            render();
         }
 
         async function render() {
             const res = await fetch('/api/get_data', {method:'POST'});
             const d = await res.json();
             const room = document.getElementById('rooms').value;
-            document.getElementById('chatBox').innerHTML = (d[room]||[]).map(m => 
-                `<div><b>${m.user}:</b> ${m.msg}</div>`
-            ).join('');
+            document.getElementById('chatBox').innerHTML = (d[room]||[]).map(m => `<div><b>${m.user}:</b> ${m.msg} ${m.reply ? '<br><span class="text-blue-400">'+m.reply+'</span>' : ''}</div>`).join('');
         }
         
-        // Periyodik güncelleme devam etsin
-        setInterval(render, 2000);
+        async function setRole() {
+            await fetch('/api/admin/set_role', {method:'POST', body:JSON.stringify({target: document.getElementById('target').value})});
+            alert('Yetkilendirildi!');
+        }
+
+        setInterval(render, 3000);
     </script>
 </body>
-    </html>
+                    </html>
