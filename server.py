@@ -48,7 +48,7 @@ class CustomHandler(http.server.SimpleHTTPRequestHandler):
                 with open(USER_FILE, "w", encoding="utf-8") as f: json.dump(users, f)
                 self.wfile.write(json.dumps({"success": True}).encode())
             else:
-                self.wfile.write(json.dumps({"success": False, "msg": "Kullanıcı mevcut veya geçersiz"}).encode())
+                self.wfile.write(json.dumps({"success": False, "msg": "Kullanici mevcut veya gecersiz"}).encode())
 
         elif self.path == "/api/login":
             users = get_data(USER_FILE, {})
