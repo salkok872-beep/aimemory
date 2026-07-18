@@ -11,12 +11,12 @@
         .msg { margin-bottom: 8px; padding: 6px 10px; border-radius: 4px; max-width: 80%; }
         .user-msg { background: #007bff; color: white; margin-left: auto; text-align: right; }
         .bot-msg { background: #e9ecef; color: #333; }
-        .badge { font-size: 12px; padding: 3px 6px; border-radius: 4px; color: white; }
+        .badge { font-size: 12px; padding: 3px 6px; border-radius: 4px; color: white; cursor: pointer; }
         .form-group { margin-bottom: 10px; display: flex; flex-direction: column; gap: 5px; max-width: 250px; }
         input { padding: 8px; border: 1px solid #ddd; border-radius: 4px; }
         button { padding: 8px 15px; background: #28a745; color: white; border: none; border-radius: 4px; cursor: pointer; }
         button.btn-alt { background: #6c757d; }
-        .user-item { display:flex; justify-content:space-between; margin-bottom: 8px; font-size:14px; padding-bottom:5px; border-bottom:1px solid #34495e;}
+        .user-item { display:flex; justify-content:space-between; margin-bottom: 8px; font-size:14px; padding-bottom:5px; border-bottom:1px solid #34495e; align-items: center;}
     </style>
 </head>
 <body>
@@ -33,7 +33,9 @@
         </div>
         <div id="chatSection" style="display:none;">
             <div style="display:flex; justify-content:space-between; align-items:center;">
-                <h3 id="chatTitle"></h3><span id="statusBadge" class="badge"></span>
+                <h3 id="chatTitle"></h3>
+                <!-- Odayı değiştirmek için badge'e tıklanabilir yaptık -->
+                <span id="statusBadge" class="badge" onclick="toggleRoom()" title="Oda değiştirmek için tıklayın"></span>
             </div>
             <div class="chat-box" id="chatBox"></div>
             <div style="display:flex; gap:10px;">
@@ -48,13 +50,15 @@
     </div>
 </div>
 <script>
-    let currentUser = "", isPrivate = false, isLoginMode = true;
+    let currentUser = "", isPrivate = false, isLoginMode = true, forcedRoom = null;
+
     function toggleAuthMode() {
         isLoginMode = !isLoginMode;
         document.getElementById("authTitle").innerText = isLoginMode ? "Giriş Yap" : "Kayıt Ol";
         document.getElementById("mainAuthBtn").innerText = isLoginMode ? "Giriş Yap" : "Kayıt Ol";
         document.getElementById("toggleAuthBtn").innerText = isLoginMode ? "Hesap Oluştur (Kayıt Ol)" : "Zaten Hesabım Var (Giriş Yap)";
     }
+
     async function login() {
         const u = document.getElementById("username").value.trim();
         const p = document.getElementById("password").value.trim();
@@ -74,26 +78,53 @@
             document.getElementById("chatSection").style.display = "block";
             document.getElementById("chatTitle").innerText = "Kullanıcı: " + u;
             badge();
-            if(data.role === "admin") { document.getElementById("adminPanel").style.display = "block"; loadUsers(); }
+            if(data.role === "admin") { 
+                document.getElementById("adminPanel").style.display = "block"; 
+                loadUsers(); 
+            }
         } else alert(data.message);
     }
+
     function badge() {
         const b = document.getElementById("statusBadge");
-        b.innerText = isPrivate ? "Özel Oda (RAG)" : "Genel Oda (Ortak)";
-        b.style.background = isPrivate ? "#2ecc71" : "#e74c3c";
+        let currentStatus = forcedRoom !== null ? forcedRoom : isPrivate;
+        b.innerText = currentStatus ? "Özel Oda (RAG) [Değiştir]" : "Genel Oda (Ortak) [Değiştir]";
+        b.style.background = currentStatus ? "#2ecc71" : "#e74c3c";
     }
+
+    function toggleRoom() {
+        // Kullanıcının hakkı varsa veya adminse odalar arası geçiş yapabilsin
+        if(isPrivate || currentUser === 'admin') {
+            let currentStatus = forcedRoom !== null ? forcedRoom : isPrivate;
+            forcedRoom = !currentStatus;
+            badge();
+        } else {
+            alert("Özel oda yetkiniz bulunmuyor.");
+        }
+    }
+
     async function sendMessage() {
         const i = document.getElementById("userMsg"), txt = i.value.trim(); if(!txt) return;
         msg(txt, 'user-msg'); i.value = "";
-        const res = await fetch('/api/chat', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({username:currentUser, message:txt}) });
+        
+        let targetRoom = forcedRoom !== null ? forcedRoom : isPrivate;
+        
+        const res = await fetch('/api/chat', { 
+            method: 'POST', 
+            headers: {'Content-Type': 'application/json'}, 
+            body: JSON.stringify({username:currentUser, message:txt, targetRoom: targetRoom}) 
+        });
         const data = await res.json(); msg(data.reply, 'bot-msg');
     }
+
     function msg(t, c) {
         const b = document.getElementById("chatBox"), d = document.createElement("div");
         d.className = `msg ${c}`; d.innerText = t; b.appendChild(d); b.scrollTop = b.scrollHeight;
     }
+
     async function loadUsers() {
-        const res = await fetch('/api/admin/users'); const data = await res.json();
+        const res = await fetch('/api/admin/users', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({}) }); 
+        const data = await res.json();
         const box = document.getElementById("userList"); box.innerHTML = "";
         for(let u in data.users) {
             if(u==='admin') continue;
@@ -103,12 +134,13 @@
             box.appendChild(div);
         }
     }
+
     async function toggle(u, acc) {
         const res = await fetch('/api/admin/update_permission', { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({target_user:u, privateAccess:acc}) });
         const data = await res.json();
         if(currentUser === u) { isPrivate = acc; badge(); }
-        if(currentUser === 'admin') { loadUsers(); }
+        loadUsers();
     }
 </script>
 </body>
-</html>
+    </html>
