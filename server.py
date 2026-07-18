@@ -1,7 +1,6 @@
 import os, json, time
 from http.server import SimpleHTTPRequestHandler, HTTPServer
 
-# Ensure directories exist
 os.makedirs("data", exist_ok=True)
 os.makedirs("dokumanlar", exist_ok=True)
 
@@ -10,14 +9,10 @@ CHAT_FILE = "data/chat.json"
 
 def get_data(file, default):
     if os.path.exists(file):
-        with open(file, "r", encoding="utf-8") as f:
+        with open(file, "r", encoding="utf-8") as f: 
             try: return json.load(f)
             except: return default
     return default
-
-def save_data(file, data):
-    with open(file, "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=4)
 
 class CustomHandler(SimpleHTTPRequestHandler):
     def do_POST(self):
@@ -26,39 +21,32 @@ class CustomHandler(SimpleHTTPRequestHandler):
         data = json.loads(body)
         
         if self.path == "/api/login":
-            users = get_data(USER_FILE, {"admin": {"password": "nimda", "role": "admin", "authorized": True}})
+            users = get_data(USER_FILE, {"admin": {"password": "nimda", "role": "admin"}})
             u, p = data.get("u"), data.get("p")
-            if u not in users: users[u] = {"password": p, "role": "user", "authorized": False}
-            if users[u]["password"] == p:
-                save_data(USER_FILE, users)
+            if u in users and users[u]["password"] == p:
                 self.send_response(200); self.end_headers()
-                self.wfile.write(json.dumps({"success": True, "role": users[u]["role"], "authorized": users[u]["authorized"]}).encode())
-            else: self.send_response(401); self.end_headers()
-
+                self.wfile.write(json.dumps({"success": True, "role": users[u].get("role", "user")}).encode())
+            else:
+                self.send_response(401); self.end_headers()
+        
         elif self.path == "/api/chat":
             chats = get_data(CHAT_FILE, {"genel": [], "ozel": [], "egitim": []})
             room, msg, user = data['room'], data['msg'], data['user']
             reply = None
             if "hey ai" in msg.lower():
-                reply = "AI: Verilerim taranıyor..."
+                reply = "AI: Bilgim yok."
                 for f in os.listdir("dokumanlar"):
                     with open(f"dokumanlar/{f}", "r", encoding="utf-8") as doc:
-                        if msg.lower() in doc.read().lower(): reply = "AI: Dokümanlarımda eşleşen bilgi bulundu."
-            
+                        if any(word in doc.read().lower() for word in msg.lower().split() if len(word) > 3):
+                            reply = "AI: Dokümanlarımda eşleşen bilgi bulundu."
             chats[room].append({"user": user, "msg": msg, "reply": reply, "time": time.strftime("%H:%M")})
-            save_data(CHAT_FILE, chats)
+            with open(CHAT_FILE, "w", encoding="utf-8") as f: json.dump(chats, f)
             self.send_response(200); self.end_headers()
 
         elif self.path == "/api/admin/set_role":
             users = get_data(USER_FILE, {})
-            if data.get("admin_u") == "admin":
-                users[data["target"]]["authorized"] = data["status"]
-                save_data(USER_FILE, users)
-            self.send_response(200); self.end_headers()
-
-        elif self.path == "/api/admin/train":
-            with open(f"dokumanlar/{int(time.time())}.txt", "w", encoding="utf-8") as f:
-                f.write(data["content"])
+            users[data["target"]] = {"password": users.get(data["target"], {}).get("password", "123"), "role": "yetkili"}
+            with open(USER_FILE, "w", encoding="utf-8") as f: json.dump(users, f)
             self.send_response(200); self.end_headers()
 
         elif self.path == "/api/get_data":
