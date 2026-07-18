@@ -1,75 +1,80 @@
 <!DOCTYPE html>
 <html lang="tr">
-<head>
-    <meta charset="UTF-8">
-    <script src="https://cdn.tailwindcss.com"></script>
-</head>
+<head><script src="https://cdn.tailwindcss.com"></script></head>
 <body class="bg-gray-900 text-white p-5">
-    <div id="login" class="max-w-md mx-auto bg-gray-800 p-8 rounded-xl shadow-lg">
-        <input id="u" class="w-full bg-gray-700 p-2 mb-3 rounded" placeholder="Kullanıcı Adı">
-        <input id="p" type="password" class="w-full bg-gray-700 p-2 mb-3 rounded" placeholder="Şifre">
+    <div id="loginArea" class="max-w-sm mx-auto bg-gray-800 p-6 rounded shadow">
+        <h2 class="text-xl mb-4 font-bold">Giriş / Kayıt</h2>
+        <input id="u" class="w-full bg-gray-700 p-2 mb-2 rounded" placeholder="Kullanıcı">
+        <input id="p" type="password" class="w-full bg-gray-700 p-2 mb-2 rounded" placeholder="Şifre">
         <label><input type="checkbox" id="rem"> Beni Hatırla</label>
         <div class="flex gap-2 mt-4">
-            <button onclick="auth('login')" class="flex-1 bg-blue-600 p-2 rounded">Giriş Yap</button>
-            <button onclick="auth('register')" class="flex-1 bg-gray-600 p-2 rounded">Kayıt Ol</button>
+            <button onclick="login()" class="flex-1 bg-blue-600 p-2 rounded">Giriş</button>
+            <button onclick="register()" class="flex-1 bg-green-600 p-2 rounded">Kayıt</button>
         </div>
     </div>
 
-    <div id="main" class="hidden grid grid-cols-4 gap-6">
-        <div class="col-span-1 bg-gray-800 p-4 rounded-xl">
-            <select id="rooms" onchange="render()" class="w-full bg-gray-700 p-2 mb-4 rounded"></select>
-            <div id="adminPanel" class="hidden border-t border-gray-600 pt-4">
-                <h3 class="font-bold mb-2">Yetkilendirme</h3>
-                <div id="userList" class="space-y-2"></div>
+    <div id="mainArea" class="hidden grid grid-cols-4 gap-4">
+        <div class="col-span-1 bg-gray-800 p-4 rounded">
+            <select id="rooms" onchange="render()" class="w-full bg-gray-700 p-2 mb-4"></select>
+            <div id="adminPanel" class="hidden border-t pt-4">
+                <h3 class="text-sm font-bold">Yetkilendirme</h3>
+                <div id="userList"></div>
             </div>
         </div>
-        <div class="col-span-3 bg-gray-800 p-4 rounded-xl">
-            <div id="chatBox" class="h-64 overflow-y-auto mb-4 bg-gray-900 p-3 rounded"></div>
-            <div class="flex gap-2">
-                <input id="msg" class="flex-1 bg-gray-700 p-2 rounded">
-                <button onclick="send()" class="bg-green-600 px-6 rounded">Gönder</button>
-            </div>
+        <div class="col-span-3 bg-gray-800 p-4 rounded">
+            <div id="chatBox" class="h-64 overflow-y-auto mb-4 bg-gray-900 p-2"></div>
+            <div class="flex gap-2"><input id="msg" class="flex-1 bg-gray-700 p-2"><button onclick="send()" class="bg-blue-600 px-4">Gönder</button></div>
         </div>
     </div>
 
     <script>
-        let user, role;
+        const API = "http://localhost:8000";
+        let user, role, authorized;
+
         window.onload = () => { if(localStorage.getItem('u')) document.getElementById('u').value = localStorage.getItem('u'); }
 
-        async function auth(type) {
-            user = document.getElementById('u').value;
-            const p = document.getElementById('p').value;
-            if(document.getElementById('rem').checked) localStorage.setItem('u', user);
-            const res = await fetch('/api/'+type, {method:'POST', body:JSON.stringify({u:user, p})});
-            const d = await res.json();
-            if(d.success) { role = d.role; document.getElementById('login').classList.add('hidden'); document.getElementById('main').classList.remove('hidden'); render(); }
-            else alert('İşlem Başarısız!');
+        async function post(url, data) {
+            const res = await fetch(API + url, {method: 'POST', body: JSON.stringify(data)});
+            return await res.json();
         }
 
-        async function send() {
-            const msg = document.getElementById('msg').value;
-            await fetch('/api/chat', {method:'POST', body:JSON.stringify({user, room:document.getElementById('rooms').value, msg})});
-            document.getElementById('msg').value = '';
-            render();
+        async function login() {
+            user = document.getElementById('u').value;
+            const res = await post("/api/login", {u: user, p: document.getElementById('p').value});
+            if(res.success) {
+                if(document.getElementById('rem').checked) localStorage.setItem('u', user);
+                role = res.role; authorized = res.authorized;
+                document.getElementById('loginArea').classList.add('hidden');
+                document.getElementById('mainArea').classList.remove('hidden');
+                initRooms();
+            }
+        }
+
+        async function register() {
+            const res = await post("/api/register", {u: document.getElementById('u').value, p: document.getElementById('p').value});
+            alert(res.success ? "Kayıt Başarılı" : res.msg);
+        }
+
+        function initRooms() {
+            const s = document.getElementById('rooms');
+            s.innerHTML = '<option value="genel">Genel</option>';
+            if(role === 'admin' || authorized) s.innerHTML += '<option value="ozel">Özel</option>';
+            if(role === 'admin') { s.innerHTML += '<option value="egitim">Eğitim</option>'; document.getElementById('adminPanel').classList.remove('hidden'); }
+            render(); setInterval(render, 3000);
         }
 
         async function render() {
-            const res = await fetch('/api/get_data', {method:'POST'});
-            const d = await res.json();
-            const s = document.getElementById('rooms');
-            s.innerHTML = '<option value="genel">Genel</option>';
-            if(role == 'yetkili' || role == 'admin') s.innerHTML += '<option value="ozel">Özel</option>';
-            if(role == 'admin') { s.innerHTML += '<option value="egitim">Eğitim</option>'; document.getElementById('adminPanel').classList.remove('hidden'); }
-            
-            document.getElementById('chatBox').innerHTML = (d.chats[s.value]||[]).map(m => `<div><b>${m.user}:</b> ${m.msg} ${m.reply ? '<span class="text-blue-400">('+m.reply+')</span>' : ''}</div>`).join('');
-            
-            if(role == 'admin') {
-                document.getElementById('userList').innerHTML = Object.keys(d.users).map(u => 
-                    `<div class="flex justify-between">${u} <button onclick="setRole('${u}')" class="text-xs bg-red-600 px-1 rounded">Yetki</button></div>`).join('');
-            }
+            const d = await post("/api/get_data", {});
+            document.getElementById('chatBox').innerHTML = (d.chats[document.getElementById('rooms').value]||[]).map(m => `<div><b>${m.user}:</b> ${m.msg}</div>`).join('');
+            if(role === 'admin') document.getElementById('userList').innerHTML = Object.keys(d.users).map(u => `<div class="mt-2"><input type="checkbox" onchange="authorize('${u}')"> ${u}</div>`).join('');
         }
-        async function setRole(u) { await fetch('/api/admin/auth', {method:'POST', body:JSON.stringify({target:u})}); render(); }
-        setInterval(render, 3000);
+
+        async function send() {
+            await post("/api/chat", {user, room: document.getElementById('rooms').value, msg: document.getElementById('msg').value});
+            document.getElementById('msg').value = ''; render();
+        }
+
+        async function authorize(u) { await post("/api/admin/authorize", {user: u}); render(); }
     </script>
 </body>
-</html>
+            </html>
