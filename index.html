@@ -1,144 +1,61 @@
 <!DOCTYPE html>
 <html lang="tr">
-<head>
-    <meta charset="UTF-8">
-    <title>AI Sohbet Paneli</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-</head>
+<head><meta charset="UTF-8"><script src="https://cdn.tailwindcss.com"></script></head>
 <body class="bg-gray-900 text-white p-5">
-    <!-- Giriş Bölümü -->
     <div id="loginArea" class="max-w-sm mx-auto bg-gray-800 p-6 rounded shadow">
         <h2 class="text-xl mb-4 font-bold">Giriş / Kayıt</h2>
-        <input id="u" class="w-full bg-gray-700 p-2 mb-2 rounded text-white" placeholder="Kullanıcı Adı">
-        <input id="p" type="password" class="w-full bg-gray-700 p-2 mb-2 rounded text-white" placeholder="Şifre">
-        <label class="flex items-center gap-2 text-sm mb-4"><input type="checkbox" id="rem"> Beni Hatırla</label>
-        <div class="flex gap-2">
-            <button onclick="login()" class="flex-1 bg-blue-600 p-2 rounded hover:bg-blue-500">Giriş</button>
-            <button onclick="register()" class="flex-1 bg-green-600 p-2 rounded hover:bg-green-500">Kayıt</button>
+        <input id="u" class="w-full bg-gray-700 p-2 mb-2 rounded" placeholder="Kullanıcı">
+        <input id="p" type="password" class="w-full bg-gray-700 p-2 mb-2 rounded" placeholder="Şifre">
+        <div class="flex gap-2 mt-4">
+            <button onclick="login()" class="flex-1 bg-blue-600 p-2 rounded">Giriş</button>
+            <button onclick="register()" class="flex-1 bg-green-600 p-2 rounded">Kayıt</button>
         </div>
     </div>
-
-    <!-- Sohbet Bölümü -->
     <div id="mainArea" class="hidden grid grid-cols-4 gap-4">
         <div class="col-span-1 bg-gray-800 p-4 rounded h-[80vh]">
             <select id="rooms" onchange="render()" class="w-full bg-gray-700 p-2 mb-4 text-white rounded">
-                <option value="genel">Genel Sohbet</option>
-                <option value="egitim">Eğitim</option>
+                <option value="genel">Genel</option><option value="egitim">Eğitim</option>
             </select>
-            <div id="adminPanel" class="hidden border-t border-gray-700 pt-4">
-                <h3 class="text-sm font-bold mb-2">Yetkilendirme</h3>
-                <div id="userList" class="text-sm space-y-1"></div>
+            <div id="adminPanel" class="hidden border-t pt-4">
+                <h3 class="text-sm font-bold">Yetkilendirme</h3>
+                <div id="userList" class="text-sm"></div>
             </div>
         </div>
         <div class="col-span-3 bg-gray-800 p-4 rounded h-[80vh] flex flex-col">
-            <div id="chatBox" class="flex-1 overflow-y-auto mb-4 bg-gray-900 p-2 rounded border border-gray-700 space-y-2"></div>
-            <div class="flex gap-2">
-                <input id="msg" onkeypress="if(event.key==='Enter') send()" class="flex-1 bg-gray-700 p-2 rounded text-white" placeholder="Mesajınızı yazın...">
-                <button onclick="send()" class="bg-blue-600 px-4 rounded hover:bg-blue-500">Gönder</button>
-            </div>
+            <div id="chatBox" class="flex-1 overflow-y-auto mb-4 bg-gray-900 p-2 rounded border border-gray-700"></div>
+            <div class="flex gap-2"><input id="msg" class="flex-1 bg-gray-700 p-2 rounded" placeholder="Mesaj..."><button onclick="send()" class="bg-blue-600 px-4 rounded">Gönder</button></div>
         </div>
     </div>
-
     <script>
         const API = "http://localhost:8000";
-        let user, role, authorized;
-
-        window.onload = () => { 
-            const savedUser = localStorage.getItem('u');
-            if(savedUser) document.getElementById('u').value = savedUser; 
-        }
-
-        async function post(url, data) {
-            try {
-                const res = await fetch(API + url, {
-                    method: 'POST', 
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify(data)
-                });
-                return await res.json();
-            } catch (e) { console.error("Bağlantı hatası:", e); return {success: false}; }
-        }
-
+        let user, role;
+        async function post(u, d) { return await (await fetch(API + u, {method:'POST', body:JSON.stringify(d)})).json(); }
         async function login() {
-            user = document.getElementById('u').value;
-            const res = await post("/api/login", {u: user, p: document.getElementById('p').value});
+            let res = await post("/api/login", {u: document.getElementById('u').value, p: document.getElementById('p').value});
             if(res.success) {
-                if(document.getElementById('rem').checked) localStorage.setItem('u', user);
-                else localStorage.removeItem('u');
-                
-                role = res.role; authorized = res.authorized;
+                user = document.getElementById('u').value; role = res.role;
                 document.getElementById('loginArea').classList.add('hidden');
                 document.getElementById('mainArea').classList.remove('hidden');
-                initRooms();
-            } else { alert("Giriş başarısız! Bilgileri kontrol edin."); }
+                if(role === 'admin') document.getElementById('adminPanel').classList.remove('hidden');
+                setInterval(render, 3000); render();
+            } else alert("Giriş Hatalı!");
         }
-
         async function register() {
-            const res = await post("/api/register", {u: document.getElementById('u').value, p: document.getElementById('p').value});
-            alert(res.success ? "Kayıt Başarılı! Şimdi giriş yapabilirsiniz." : res.msg);
+            let res = await post("/api/register", {u: document.getElementById('u').value, p: document.getElementById('p').value});
+            alert(res.success ? "Başarılı" : res.msg);
         }
-
-        function initRooms() {
-            const s = document.getElementById('rooms');
-            // Admin panelini göster
-            if(role === 'admin') document.getElementById('adminPanel').classList.remove('hidden');
-            render(); 
-            setInterval(render, 3000);
-        }
-
         async function render() {
-            const d = await post("/api/get_data", {});
-            const chatBox = document.getElementById('chatBox');
-            const roomSelect = document.getElementById('rooms');
-            const currentRoom = roomSelect.value;
-            
-            // Özel odaları select'e ekle (eğer yoksa)
-            Object.keys(d.ozel).forEach(file => {
-                const roomName = file.replace('.txt', '');
-                if(![...roomSelect.options].find(o => o.value === roomName)) {
-                    let opt = document.createElement('option');
-                    opt.value = roomName; opt.innerHTML = roomName;
-                    roomSelect.appendChild(opt);
-                }
-            });
-
-            // Mesajları yükle
-            let messages = [];
-            if (currentRoom === 'genel') messages = d.genel;
-            else if (currentRoom === 'egitim') messages = d.egitim;
-            else messages = d.ozel[`${currentRoom}.txt`] || [];
-
-            const newHtml = messages.map(m => 
-                `<div class="p-2 bg-gray-700 rounded border-l-4 border-blue-500"><b>${m.user}:</b> ${m.msg}</div>`
-            ).join('');
-            
-            if(chatBox.innerHTML !== newHtml) {
-                chatBox.innerHTML = newHtml;
-                chatBox.scrollTop = chatBox.scrollHeight;
-            }
-
-            // Admin yetki listesi
-            if(role === 'admin' && d.users) {
-                document.getElementById('userList').innerHTML = Object.keys(d.users).map(u => `
-                    <div class="flex items-center gap-2">
-                        <input type="checkbox" ${d.users[u].authorized ? 'checked' : ''} onchange="authorize('${u}', this.checked)"> ${u}
-                    </div>
-                `).join('');
-            }
+            let d = await post("/api/get_data", {});
+            let r = document.getElementById('rooms').value;
+            let m = (r==='genel') ? d.genel : (r==='egitim') ? d.egitim : (d.ozel[r+'.txt']||[]);
+            document.getElementById('chatBox').innerHTML = m.map(x => `<div><b>${x.user}:</b> ${x.msg}</div>`).join('');
+            if(role === 'admin') document.getElementById('userList').innerHTML = Object.keys(d.users).map(u => `<div class="mt-2"><input type="checkbox" ${d.users[u].authorized?'checked':''} onchange="authorize('${u}', this.checked)"> ${u}</div>`).join('');
         }
-
         async function send() {
-            const msgInput = document.getElementById('msg');
-            if(!msgInput.value.trim()) return;
-            await post("/api/chat", {user, room: document.getElementById('rooms').value, msg: msgInput.value});
-            msgInput.value = ''; 
-            render();
+            await post("/api/chat", {user, room: document.getElementById('rooms').value, msg: document.getElementById('msg').value});
+            document.getElementById('msg').value = ''; render();
         }
-
-        async function authorize(u, isAuthorized) { 
-            await post("/api/admin/authorize", {user: u, status: isAuthorized}); 
-            render(); 
-        }
+        async function authorize(u, s) { await post("/api/admin/authorize", {user:u, status:s}); render(); }
     </script>
 </body>
-        </html>
+            </html>
