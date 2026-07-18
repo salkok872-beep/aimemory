@@ -7,13 +7,13 @@
 <body class="bg-gray-900 text-white p-5">
     <!-- Login Area -->
     <div id="loginArea" class="max-w-sm mx-auto bg-gray-800 p-6 rounded shadow">
-        <h2 class="text-xl mb-4 font-bold">Giriş / Kayıt</h2>
-        <input id="u" class="w-full bg-gray-700 p-2 mb-2 rounded text-white" placeholder="Kullanıcı Adı">
-        <input id="p" type="password" class="w-full bg-gray-700 p-2 mb-2 rounded text-white" placeholder="Şifre">
-        <label class="flex items-center gap-2 text-sm"><input type="checkbox" id="rem"> Beni Hatırla</label>
+        <h2 class="text-xl mb-4 font-bold">Giris / Kayit</h2>
+        <input id="u" class="w-full bg-gray-700 p-2 mb-2 rounded text-white" placeholder="Kullanici Adi">
+        <input id="p" type="password" class="w-full bg-gray-700 p-2 mb-2 rounded text-white" placeholder="Sifre">
+        <label class="flex items-center gap-2 text-sm"><input type="checkbox" id="rem"> Beni Hatirla</label>
         <div class="flex gap-2 mt-4">
-            <button onclick="login()" class="flex-1 bg-blue-600 p-2 rounded hover:bg-blue-500">Giriş</button>
-            <button onclick="register()" class="flex-1 bg-green-600 p-2 rounded hover:bg-green-500">Kayıt</button>
+            <button onclick="login()" class="flex-1 bg-blue-600 p-2 rounded hover:bg-blue-500">Giris</button>
+            <button onclick="register()" class="flex-1 bg-green-600 p-2 rounded hover:bg-green-500">Kayit</button>
         </div>
     </div>
 
@@ -31,8 +31,8 @@
         <div class="col-span-3 bg-gray-800 p-4 rounded">
             <div id="chatBox" class="h-64 overflow-y-auto mb-4 bg-gray-900 p-2 rounded border border-gray-700"></div>
             <div class="flex gap-2">
-                <input id="msg" onkeypress="if(event.key==='Enter') send()" class="flex-1 bg-gray-700 p-2 rounded text-white" placeholder="Mesajınızı yazın...">
-                <button onclick="send()" class="bg-blue-600 px-4 rounded hover:bg-blue-500">Gönder</button>
+                <input id="msg" onkeypress="if(event.key==='Enter') send()" class="flex-1 bg-gray-700 p-2 rounded text-white" placeholder="Mesajinizi yazin...">
+                <button onclick="send()" class="bg-blue-600 px-4 rounded hover:bg-blue-500">Gonder</button>
             </div>
         </div>
     </div>
@@ -68,20 +68,20 @@
                 document.getElementById('loginArea').classList.add('hidden');
                 document.getElementById('mainArea').classList.remove('hidden');
                 initRooms();
-            } else { alert("Giriş başarısız!"); }
+            } else { alert("Giris basarisiz!"); }
         }
 
         async function register() {
             const res = await post("/api/register", {u: document.getElementById('u').value, p: document.getElementById('p').value});
-            alert(res.success ? "Kayıt Başarılı" : res.msg);
+            alert(res.success ? "Kayit Basarili" : res.msg);
         }
 
         function initRooms() {
             const s = document.getElementById('rooms');
             s.innerHTML = '<option value="genel">Genel</option>';
-            if(role === 'admin' || authorized) s.innerHTML += '<option value="ozel">Özel</option>';
+            if(role === 'admin' || authorized) s.innerHTML += '<option value="ozel">Ozel</option>';
             if(role === 'admin') { 
-                s.innerHTML += '<option value="egitim">Eğitim</option>'; 
+                s.innerHTML += '<option value="egitim">Egitim</option>'; 
                 document.getElementById('adminPanel').classList.remove('hidden'); 
             }
             render(); 
