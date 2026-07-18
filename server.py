@@ -90,3 +90,30 @@ if __name__ == "__main__":
     httpd = HTTPServer(server_address, MyHandler)
     print(f"Sunucu {port} portunda çalışıyor...")
     httpd.serve_forever()
+
+from http.server import HTTPServer, SimpleHTTPRequestHandler
+import json
+import os
+
+PORT = int(os.environ.get("PORT", 8000))
+
+class MyHandler(SimpleHTTPRequestHandler):
+    def do_POST(self):
+        content_length = int(self.headers['Content-Length'])
+        post_data = self.rfile.read(content_length)
+        data = json.loads(post_data.decode('utf-8'))
+        
+        # Basit Kayıt/Giriş Mantığı
+        if self.path == '/api/auth':
+            # Buraya kayıt/giriş logic'i gelecek
+            self.send_response(200)
+            self.send_header('Content-type', 'application/json')
+            self.end_headers()
+            self.wfile.write(json.dumps({"status": "success"}).encode())
+        else:
+            super().do_POST()
+
+if __name__ == "__main__":
+    httpd = HTTPServer(('0.0.0.0', PORT), MyHandler)
+    print(f"Sunucu {PORT} portunda baslatildi.")
+    httpd.serve_forever()
