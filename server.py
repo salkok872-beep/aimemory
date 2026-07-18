@@ -78,3 +78,15 @@ if __name__ == "__main__":
     print("Sunucu 8000 portunda çalışıyor...")
     with socketserver.TCPServer(("", 8000), CustomHandler) as httpd:
         httpd.serve_forever()
+
+import os
+
+# Render'ın verdiği portu yakala
+port = int(os.environ.get("PORT", 8000))
+
+if __name__ == "__main__":
+    # Sunucuyu başlat
+    server_address = ('0.0.0.0', port)
+    httpd = HTTPServer(server_address, MyHandler)
+    print(f"Sunucu {port} portunda çalışıyor...")
+    httpd.serve_forever()
