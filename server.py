@@ -1,6 +1,6 @@
 import os, json, http.server, socketserver
 
-# Dizinleri hazırla
+# Dizinleri hazırl
 os.makedirs("data", exist_ok=True)
 os.makedirs("dokumanlar", exist_ok=True)
 
