@@ -56,6 +56,19 @@ def log_to_file(file_name, text):
         f.write(f"[{timestamp}] {text}\n----------------------------------------\n")
 
 class CustomHandler(SimpleHTTPRequestHandler):
+    def do_GET(self):
+        if self.path == "/" or self.path == "/index.html":
+            self.send_response(200)
+            self.send_header('Content-Type', 'text/html; charset=utf-8')
+            self.end_headers()
+            if os.path.exists("index.html"):
+                with open("index.html", "r", encoding="utf-8") as f:
+                    self.wfile.write(f.read().encode('utf-8'))
+            else:
+                self.wfile.write(b"index.html bulunamadi!")
+        else:
+            super().do_GET()
+
     def do_POST(self):
         parsed_url = urlparse(self.path)
         content_length = int(self.headers['Content-Length'])
@@ -86,8 +99,11 @@ class CustomHandler(SimpleHTTPRequestHandler):
             self.wfile.write(json.dumps(res).encode('utf-8'))
 
         elif parsed_url.path == "/api/chat":
-            u, msg = post_data.get("username", "Anonim"), post_data.get("message", "")
-            if USERS.get(u, {}).get("privateAccess"):
+            u = post_data.get("username", "Anonim")
+            msg = post_data.get("message", "")
+            target_room = post_data.get("targetRoom", False) # Arayüzden seçilen odayı dinle
+            
+            if target_room:
                 file_target = f"{u}_ozel_sohbet.txt"
                 reply = f"🤖 [Ozel AI] {u} icin ozel RAG odasi aktif. Dokumanlar taranabilir."
                 log_to_file(file_target, f"Kullanici: {msg}")
