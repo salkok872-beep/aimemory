@@ -5,11 +5,13 @@ This AI Memory project
 was created by a TURKISH developer
 with the assistance of Gemini AI.
 -------------------------------------------
+-------------------------------------------
+###########################################
 pip install groq
 pip install requests
 pip install flask requests
-bunları projreyi yaptığınız klasörün terminaline yazın
--------------------------------------------
+bunları projeyi yaptığınız klasörün terminalinde çalıştırın
+###########################################
 pip install groq
 pip install requests
 pip install flask requests
